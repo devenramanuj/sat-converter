@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sats & EVM Tip Utility</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --accent: #f7931a;
+      --poly-purple: #8247e5;
+      --text: #c9d1d9;
+      --text-bright: #ffffff;
+      --green: #2ea043;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px 10px; min-height: 100vh; }
+    .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    h1 { font-size: 1.3rem; color: var(--accent); text-align: center; margin-bottom: 4px; }
+    p.subtitle { text-align: center; font-size: 0.82rem; color: #8b949e; margin-bottom: 12px; }
+    label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 6px; color: var(--text-bright); }
+    input[type="number"] { width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid var(--border); border-radius: 8px; color: var(--text-bright); font-size: 1.1rem; outline: none; }
+    input[type="number"]:focus { border-color: var(--accent); }
+    .grid-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .val-box { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+    .val-box span { font-size: 0.75rem; color: #8b949e; display: block; }
+    .val-box strong { font-size: 0.95rem; color: var(--text-bright); margin-top: 4px; display: block; word-break: break-all; }
+    .fees-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .fee-item { text-align: center; padding: 8px; border-radius: 6px; background: #0d1117; border: 1px solid var(--border); }
+    .fee-item span { font-size: 0.72rem; color: #8b949e; }
+    .fee-item div { font-size: 0.95rem; font-weight: bold; color: var(--accent); margin-top: 2px; }
+    .tip-section { text-align: center; }
+    .tip-section h2 { font-size: 1rem; color: var(--text-bright); margin-bottom: 4px; }
+    .badge { display: inline-block; background: rgba(130, 71, 229, 0.2); color: #a879f7; border: 1px solid #8247e5; border-radius: 20px; font-size: 0.72rem; padding: 2px 10px; margin-bottom: 10px; font-weight: 600; }
+    #qrcode { display: flex; justify-content: center; margin: 12px auto; padding: 8px; background: #fff; border-radius: 8px; width: fit-content; }
+    .addr-box { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 10px; font-size: 0.75rem; color: #8b949e; word-break: break-all; font-family: monospace; }
+    .copy-btn { display: inline-block; background: var(--poly-purple); color: #fff; font-weight: bold; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; margin-top: 10px; transition: opacity 0.2s; }
+    .copy-btn:hover { opacity: 0.9; }
+    .status { font-size: 0.75rem; color: #8b949e; text-align: right; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <h1>⚡ Sats Converter</h1>
+    <p class="subtitle">Real-time Satoshis to Fiat & Mempool Fees</p>
+    
+    <label for="satsInput">Enter Satoshis (Sats):</label>
+    <input type="number" id="satsInput" value="10000" min="1" step="1">
+
+    <div class="grid-values">
+      <div class="val-box">
+        <span>USD ($)</span>
+        <strong id="valUSD">...</strong>
+      </div>
+      <div class="val-box">
+        <span>INR (₹)</span>
+        <strong id="valINR">...</strong>
+      </div>
+      <div class="val-box">
+        <span>BTC</span>
+        <strong id="valBTC">...</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <label style="margin: 0;">Mempool Fees (sat/vB)</label>
+      <span class="status" id="feeStatus">Updating...</span>
+    </div>
+    <div class="fees-grid">
+      <div class="fee-item">
+        <span>Low Priority</span>
+        <div id="lowFee">-</div>
+      </div>
+      <div class="fee-item">
+        <span>Medium</span>
+        <div id="medFee">-</div>
+      </div>
+      <div class="fee-item">
+        <span>High Priority</span>
+        <div id="highFee">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card tip-section">
+    <h2>☕ Support the Dev</h2>
+    <span class="badge">Polygon / Arbitrum / BSC / ETH</span>
+    <p style="font-size: 0.8rem; color: #8b949e;">If this utility was helpful, tip via any EVM network (MATIC, USDT, BNB, ETH):</p>
+    
+    <div id="qrcode"></div>
+    
+    <div class="addr-box" id="walletAddr">0x356F76E3B69218d8a5Abe969bd9Db31BF6553a98</div>
+    <button class="copy-btn" id="copyBtn" onclick="copyAddress()">📋 Copy Address</button>
+  </div>
+</div>
+
+<script>
+  const EVM_ADDRESS = "0x356F76E3B69218d8a5Abe969bd9Db31BF6553a98";
+  let btcPrice = { usd: 0, inr: 0 };
+
+  async function fetchPrices() {
+    try {
+      const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,inr");
+      const data = await res.json();
+      btcPrice.usd = data.bitcoin.usd;
+      btcPrice.inr = data.bitcoin.inr;
+      calculateValues();
+    } catch (e) {
+      console.error("Price fetch error:", e);
+    }
+  }
+
+  async function fetchMempoolFees() {
+    try {
+      const res = await fetch("https://mempool.space/api/v1/fees/recommended");
+      const fees = await res.json();
+      document.getElementById("lowFee").innerText = fees.hourFee;
+      document.getElementById("medFee").innerText = fees.halfHourFee;
+      document.getElementById("highFee").innerText = fees.fastestFee;
+      document.getElementById("feeStatus").innerText = "Live";
+    } catch (e) {
+      document.getElementById("feeStatus").innerText = "Offline";
+    }
+  }
+
+  function calculateValues() {
+    const sats = parseFloat(document.getElementById("satsInput").value) || 0;
+    const btc = sats / 100000000;
+    
+    document.getElementById("valBTC").innerText = btc.toFixed(8);
+    
+    if (btcPrice.usd && btcPrice.inr) {
+      document.getElementById("valUSD").innerText = "$" + (btc * btcPrice.usd).toFixed(2);
+      document.getElementById("valINR").innerText = "₹" + (btc * btcPrice.inr).toFixed(2);
+    }
+  }
+
+  function setupQR() {
+    new QRCode(document.getElementById("qrcode"), {
+      text: EVM_ADDRESS,
+      width: 130,
+      height: 130,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.M
+    });
+  }
+
+  function copyAddress() {
+    navigator.clipboard.writeText(EVM_ADDRESS).then(() => {
+      const btn = document.getElementById("copyBtn");
+      btn.innerText = "✅ Address Copied!";
+      setTimeout(() => {
+        btn.innerText = "📋 Copy Address";
+      }, 2500);
+    });
+  }
+
+  document.getElementById("satsInput").addEventListener("input", calculateValues);
+
+  // Initialize
+  fetchPrices();
+  fetchMempoolFees();
+  setupQR();
+
+  // Auto refresh
+  setInterval(fetchPrices, 60000);
+  setInterval(fetchMempoolFees, 30000);
+</script>
+
+</body>
+</html>
